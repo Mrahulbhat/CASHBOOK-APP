@@ -21,6 +21,11 @@ const categorySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    type: {
+      type: String,
+      enum: ['income', 'expense', 'investment'],
+      required: true,
+    },
     subCategory: {
       type: String,
       enum: ['need', 'want','investment'],

@@ -39,11 +39,8 @@ export default function AddTransaction() {
     try {
       setLoadingCategories(true);
       const data = await categoryApi.getCategories();
-      // Filter categories by subCategory matching transaction type
-      const filtered = data.filter((cat) => {
-        if (formData.type === 'investment') return cat.subCategory === 'investment';
-        return cat.subCategory !== 'investment';
-      });
+      // Filter categories by type matching transaction type
+      const filtered = data.filter((cat) => cat.type === formData.type);
       setCategories(filtered);
       if (filtered.length > 0 && !formData.category) {
         setFormData((prev) => ({ ...prev, category: filtered[0]._id }));

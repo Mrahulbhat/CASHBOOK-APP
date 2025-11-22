@@ -3,10 +3,10 @@ import { StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, Alert
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { transactionApi, Transaction } from '../../lib/api';
+import { transactionApi, categoryApi, Transaction } from '../../lib/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, format } from 'date-fns';
-import { LogOut } from 'lucide-react-native';
+import { LogOut, Trash2 } from 'lucide-react-native';
 
 type FilterType = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'total';
 type TransactionType = 'expense' | 'income' | 'investment';
@@ -14,10 +14,12 @@ type TransactionType = 'expense' | 'income' | 'investment';
 export default function Home() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>('total');
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>('monthly');
   const [selectedTab, setSelectedTab] = useState<TransactionType>('expense');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
 
   const handleLogout = () => {
     Alert.alert(
@@ -42,23 +44,23 @@ export default function Home() {
     switch (filter) {
       case 'daily':
         return {
-          from: format(startOfDay(now), 'yyyy-MM-dd'),
-          to: format(endOfDay(now), 'yyyy-MM-dd'),
+          from: format(startOfDay(now), 'yyyy-MM-dd 00:00:00'),
+          to: format(endOfDay(now), 'yyyy-MM-dd 23:59:59'),
         };
       case 'weekly':
         return {
-          from: format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
-          to: format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+          from: format(startOfDay(startOfWeek(now, { weekStartsOn: 1 })), 'yyyy-MM-dd 00:00:00'),
+          to: format(endOfDay(endOfWeek(now, { weekStartsOn: 1 })), 'yyyy-MM-dd 23:59:59'),
         };
       case 'monthly':
         return {
-          from: format(startOfMonth(now), 'yyyy-MM-dd'),
-          to: format(endOfMonth(now), 'yyyy-MM-dd'),
+          from: format(startOfDay(startOfMonth(now)), 'yyyy-MM-dd 00:00:00'),
+          to: format(endOfDay(endOfMonth(now)), 'yyyy-MM-dd 23:59:59'),
         };
       case 'yearly':
         return {
-          from: format(startOfYear(now), 'yyyy-MM-dd'),
-          to: format(endOfYear(now), 'yyyy-MM-dd'),
+          from: format(startOfDay(startOfYear(now)), 'yyyy-MM-dd 00:00:00'),
+          to: format(endOfDay(endOfYear(now)), 'yyyy-MM-dd 23:59:59'),
         };
       case 'total':
       default:
@@ -76,6 +78,12 @@ export default function Home() {
       };
       const data = await transactionApi.getTransactions(filters);
       setTransactions(data);
+
+      // Fetch all transactions for balance calculation
+      if (selectedTab === 'expense') {
+        const allData = await transactionApi.getTransactions({});
+        setAllTransactions(allData);
+      }
     } catch (error) {
       console.error('Error fetching transactions:', error);
       setTransactions([]);
@@ -100,6 +108,99 @@ export default function Home() {
     return transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
   };
 
+  const calculateBalance = () => {
+    if (selectedTab !== 'expense') return null;
+
+    try {
+      const incomeTotal = allTransactions
+        .filter((tx) => tx.type === 'income')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+
+      const investmentTotal = allTransactions
+        .filter((tx) => tx.type === 'investment')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+
+      const expenseTotal = allTransactions
+        .filter((tx) => tx.type === 'expense')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+
+      return incomeTotal - expenseTotal - investmentTotal;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleDeleteAll = () => {
+    Alert.alert(
+      'Delete All Transactions',
+      `Are you sure you want to delete all ${selectedTab} transactions? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Transactions Only',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              await Promise.all(
+                transactions.map((tx) => transactionApi.deleteTransaction(tx._id))
+              );
+              setTransactions([]);
+              setAllTransactions([]);
+              Alert.alert('Success', 'All transactions deleted successfully');
+            } catch (error) {
+              console.error('Error deleting transactions:', error);
+              Alert.alert('Error', 'Failed to delete transactions');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+        {
+          text: 'Delete Transactions & Categories',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Delete Everything?',
+              'This will delete all transactions AND all categories. This action cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete All',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      setDeleting(true);
+                      // Delete all transactions
+                      await Promise.all(
+                        transactions.map((tx) => transactionApi.deleteTransaction(tx._id))
+                      );
+                      // Delete all categories
+                      const categories = await categoryApi.getCategories();
+                      await Promise.all(
+                        categories.map((cat: any) => categoryApi.deleteCategory(cat._id))
+                      );
+                      setTransactions([]);
+                      setAllTransactions([]);
+                      Alert.alert('Success', 'All transactions and categories deleted successfully');
+                    } catch (error) {
+                      console.error('Error deleting data:', error);
+                      Alert.alert('Error', 'Failed to delete transactions and categories');
+                    } finally {
+                      setDeleting(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const balance = calculateBalance();
+
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -123,9 +224,18 @@ export default function Home() {
           <Text style={styles.welcomeText}>Welcome back,</Text>
           <Text style={styles.userName}>{user?.name || 'User'}</Text>
         </View>
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <LogOut color="#EF4444" size={20} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable 
+            style={styles.deleteButton} 
+            onPress={handleDeleteAll}
+            disabled={deleting || transactions.length === 0}
+          >
+            <Trash2 color="#EF4444" size={20} />
+          </Pressable>
+          <Pressable style={styles.logoutButton} onPress={handleLogout}>
+            <LogOut color="#EF4444" size={20} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Filter Tabs */}
@@ -186,14 +296,29 @@ export default function Home() {
         ) : (
           <>
             <Text style={styles.amountLabel}>
-              {selectedTab.charAt(0).toUpperCase() + selectedTab.slice(1)} Amount
-            </Text>
-            <Text style={styles.amountValue}>{formatAmount(calculateTotal())}</Text>
-            <Text style={styles.periodLabel}>
               {selectedFilter === 'total'
                 ? 'All Time'
                 : `${selectedFilter.charAt(0).toUpperCase() + selectedFilter.slice(1)} Period`}
             </Text>
+            <View style={styles.amountCard}>
+              <View style={styles.amountColumn}>
+                <Text style={styles.columnLabel}>
+                  {selectedTab.charAt(0).toUpperCase() + selectedTab.slice(1)} Amount
+                </Text>
+                <Text style={styles.columnValue}>{formatAmount(calculateTotal())}</Text>
+              </View>
+              {balance !== null && (
+                <>
+                  <View style={styles.columnDivider} />
+                  <View style={styles.amountColumn}>
+                    <Text style={styles.columnLabel}>Balance Left</Text>
+                    <Text style={[styles.columnValue, balance < 0 && styles.columnValueNegative]}>
+                      {balance < 0 ? '-' : ''}{formatAmount(Math.abs(balance))}
+                    </Text>
+                  </View>
+                </>
+              )}
+            </View>
           </>
         )}
       </View>
@@ -334,28 +459,51 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   amountContainer: {
-    padding: 24,
-    alignItems: 'center',
+    padding: 16,
     backgroundColor: '#1E1E1E',
     borderBottomWidth: 1,
     borderBottomColor: '#333',
   },
   amountLabel: {
-    color: '#aaa',
-    fontSize: 14,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  amountValue: {
-    color: '#fff',
-    fontSize: 42,
-    fontWeight: '900',
-    marginBottom: 4,
-  },
-  periodLabel: {
     color: '#888',
     fontSize: 12,
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  amountCard: {
+    flexDirection: 'row',
+    backgroundColor: '#252525',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#333',
+  },
+  amountColumn: {
+    flex: 1,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  columnDivider: {
+    width: 1,
+    backgroundColor: '#333',
+  },
+  columnLabel: {
+    color: '#aaa',
+    fontSize: 12,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+  },
+  columnValue: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  columnValueNegative: {
+    color: '#EF4444',
   },
   transactionsContainer: {
     flex: 1,
@@ -422,6 +570,16 @@ const styles = StyleSheet.create({
   transactionMode: {
     color: '#888',
     fontSize: 12,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#2A2A2A',
   },
 });
 

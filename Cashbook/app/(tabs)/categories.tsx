@@ -23,6 +23,7 @@ export default function Categories() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    type: 'expense' as 'income' | 'expense' | 'investment',
     subCategory: 'need' as 'need' | 'want' | 'investment',
   });
 
@@ -77,7 +78,7 @@ export default function Categories() {
       }
       setShowAddModal(false);
       setEditingCategory(null);
-      setFormData({ name: '', subCategory: 'need' });
+      setFormData({ name: '', type: 'expense', subCategory: 'need' });
       fetchCategories();
     } catch (error: any) {
       Toast.show({
@@ -90,7 +91,7 @@ export default function Categories() {
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
-    setFormData({ name: category.name, subCategory: category.subCategory });
+    setFormData({ name: category.name, type: category.type, subCategory: category.subCategory });
     setShowAddModal(true);
   };
 
@@ -125,6 +126,39 @@ export default function Categories() {
     );
   };
 
+  const handleDeleteAll = () => {
+    Alert.alert(
+      'Delete All Categories',
+      'Are you sure you want to delete all categories? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await Promise.all(
+                categories.map((cat) => categoryApi.deleteCategory(cat._id))
+              );
+              Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'All categories deleted successfully',
+              });
+              fetchCategories();
+            } catch (error: any) {
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: error?.response?.data?.message || 'Failed to delete categories',
+              });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const getSubCategoryColor = (subCategory: string) => {
     switch (subCategory) {
       case 'need':
@@ -140,10 +174,11 @@ export default function Categories() {
 
   const groupedCategories = categories.reduce(
     (acc, cat) => {
-      if (!acc[cat.subCategory]) {
-        acc[cat.subCategory] = [];
+      const key = `${cat.type}-${cat.subCategory}`;
+      if (!acc[key]) {
+        acc[key] = [];
       }
-      acc[cat.subCategory].push(cat);
+      acc[key].push(cat);
       return acc;
     },
     {} as Record<string, Category[]>
@@ -154,16 +189,26 @@ export default function Categories() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Categories</Text>
-        <Pressable
-          style={styles.addButton}
-          onPress={() => {
-            setEditingCategory(null);
-            setFormData({ name: '', subCategory: 'need' });
-            setShowAddModal(true);
-          }}
-        >
-          <Plus color="#fff" size={20} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          {categories.length > 0 && (
+            <Pressable
+              style={styles.deleteAllButton}
+              onPress={handleDeleteAll}
+            >
+              <Trash2 color="#EF4444" size={20} />
+            </Pressable>
+          )}
+          <Pressable
+            style={styles.addButton}
+            onPress={() => {
+              setEditingCategory(null);
+              setFormData({ name: '', type: 'expense', subCategory: 'need' });
+              setShowAddModal(true);
+            }}
+          >
+            <Plus color="#fff" size={20} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Categories List */}
@@ -187,52 +232,64 @@ export default function Categories() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {(['need', 'want', 'investment'] as const).map((subCat) => {
-            const items = groupedCategories[subCat] || [];
-            if (items.length === 0) return null;
-
+          {(['income', 'expense', 'investment'] as const).map((catType) => {
             return (
-              <View key={subCat} style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <View
-                    style={[
-                      styles.sectionIndicator,
-                      { backgroundColor: getSubCategoryColor(subCat) },
-                    ]}
-                  />
-                  <Text style={styles.sectionTitle}>
-                    {subCat.charAt(0).toUpperCase() + subCat.slice(1)}
+              <View key={catType}>
+                <View style={styles.typeSection}>
+                  <Text style={styles.typeSectionTitle}>
+                    {catType.charAt(0).toUpperCase() + catType.slice(1)} Categories
                   </Text>
-                  <Text style={styles.sectionCount}>({items.length})</Text>
                 </View>
+                {(['need', 'want', 'investment'] as const).map((subCat) => {
+                  const key = `${catType}-${subCat}`;
+                  const items = groupedCategories[key] || [];
+                  if (items.length === 0) return null;
 
-                {items.map((category) => (
-                  <View key={category._id} style={styles.categoryCard}>
-                    <View style={styles.categoryInfo}>
-                      <Text style={styles.categoryName}>{category.name}</Text>
-                      {category.monthlyBudgets.length > 0 && (
-                        <Text style={styles.budgetInfo}>
-                          {category.monthlyBudgets.length} budget(s) set
+                  return (
+                    <View key={key} style={styles.section}>
+                      <View style={styles.sectionHeader}>
+                        <View
+                          style={[
+                            styles.sectionIndicator,
+                            { backgroundColor: getSubCategoryColor(subCat) },
+                          ]}
+                        />
+                        <Text style={styles.sectionTitle}>
+                          {subCat.charAt(0).toUpperCase() + subCat.slice(1)}
                         </Text>
-                      )}
-                    </View>
+                        <Text style={styles.sectionCount}>({items.length})</Text>
+                      </View>
 
-                    <View style={styles.categoryActions}>
-                      <Pressable
-                        style={styles.actionButton}
-                        onPress={() => handleEdit(category)}
-                      >
-                        <Edit color="#60A5FA" size={18} />
-                      </Pressable>
-                      <Pressable
-                        style={styles.actionButton}
-                        onPress={() => handleDelete(category._id, category.name)}
-                      >
-                        <Trash2 color="#EF4444" size={18} />
-                      </Pressable>
+                      {items.map((category) => (
+                        <View key={category._id} style={styles.categoryCard}>
+                          <View style={styles.categoryInfo}>
+                            <Text style={styles.categoryName}>{category.name}</Text>
+                            {category.monthlyBudgets.length > 0 && (
+                              <Text style={styles.budgetInfo}>
+                                {category.monthlyBudgets.length} budget(s) set
+                              </Text>
+                            )}
+                          </View>
+
+                          <View style={styles.categoryActions}>
+                            <Pressable
+                              style={styles.actionButton}
+                              onPress={() => handleEdit(category)}
+                            >
+                              <Edit color="#60A5FA" size={18} />
+                            </Pressable>
+                            <Pressable
+                              style={styles.actionButton}
+                              onPress={() => handleDelete(category._id, category.name)}
+                            >
+                              <Trash2 color="#EF4444" size={18} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
                     </View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             );
           })}
@@ -261,7 +318,34 @@ export default function Categories() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Type</Text>
+              <Text style={styles.label}>Category Type</Text>
+              <View style={styles.typeContainer}>
+                {(['income', 'expense', 'investment'] as const).map((catType) => (
+                  <Pressable
+                    key={catType}
+                    style={[
+                      styles.typeButton,
+                      formData.type === catType && styles.typeButtonActive,
+                    ]}
+                    onPress={() =>
+                      setFormData((prev) => ({ ...prev, type: catType }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.typeButtonText,
+                        formData.type === catType && styles.typeButtonTextActive,
+                      ]}
+                    >
+                      {catType.charAt(0).toUpperCase() + catType.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Subcategory</Text>
               <View style={styles.typeContainer}>
                 {(['need', 'want', 'investment'] as const).map((type) => (
                   <Pressable
@@ -293,7 +377,7 @@ export default function Categories() {
                 onPress={() => {
                   setShowAddModal(false);
                   setEditingCategory(null);
-                  setFormData({ name: '', subCategory: 'need' });
+                  setFormData({ name: '', type: 'expense', subCategory: 'need' });
                 }}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -332,6 +416,19 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '900',
     color: '#fff',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  deleteAllButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2A2A2A',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addButton: {
     width: 40,
@@ -390,6 +487,18 @@ const styles = StyleSheet.create({
   sectionCount: {
     color: '#888',
     fontSize: 14,
+  },
+  typeSection: {
+    marginTop: 16,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+  },
+  typeSectionTitle: {
+    color: '#60A5FA',
+    fontSize: 18,
+    fontWeight: '700',
   },
   categoryCard: {
     backgroundColor: '#1E1E1E',

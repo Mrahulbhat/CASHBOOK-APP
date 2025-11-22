@@ -34,6 +34,7 @@ export interface TransactionFilters {
 export interface Category {
   _id: string;
   name: string;
+  type: 'income' | 'expense' | 'investment';
   subCategory: 'need' | 'want' | 'investment';
   monthlyBudgets: Array<{
     month: number;
@@ -44,6 +45,7 @@ export interface Category {
 
 export interface CreateCategoryData {
   name: string;
+  type: 'income' | 'expense' | 'investment';
   subCategory: 'need' | 'want' | 'investment';
 }
 
