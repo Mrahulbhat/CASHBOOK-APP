@@ -131,6 +131,10 @@ export default function Home() {
   };
 
   const handleDeleteAll = () => {
+    const transactionsToDelete = selectedTab === 'expense' || selectedTab === 'income' || selectedTab === 'investment' 
+      ? transactions 
+      : allTransactions;
+    
     Alert.alert(
       'Delete All Transactions',
       `Are you sure you want to delete all ${selectedTab} transactions? This action cannot be undone.`,
@@ -143,7 +147,7 @@ export default function Home() {
             try {
               setDeleting(true);
               await Promise.all(
-                transactions.map((tx) => transactionApi.deleteTransaction(tx._id))
+                transactionsToDelete.map((tx) => transactionApi.deleteTransaction(tx._id))
               );
               setTransactions([]);
               setAllTransactions([]);
@@ -173,7 +177,7 @@ export default function Home() {
                       setDeleting(true);
                       // Delete all transactions
                       await Promise.all(
-                        transactions.map((tx) => transactionApi.deleteTransaction(tx._id))
+                        transactionsToDelete.map((tx) => transactionApi.deleteTransaction(tx._id))
                       );
                       // Delete all categories
                       const categories = await categoryApi.getCategories();

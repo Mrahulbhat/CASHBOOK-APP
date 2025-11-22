@@ -36,7 +36,7 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-categorySchema.index({ user: 1, name: 1 }, { unique: true });
+categorySchema.index({ user: 1, type: 1, name: 1 }, { unique: true });
 
 const Category = mongoose.model('Category', categorySchema);
 

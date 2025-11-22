@@ -38,7 +38,7 @@ npm start
 - `PATCH /api/transactions/:id` update transaction
 - `DELETE /api/transactions/:id` delete transaction
 - `GET /api/categories` list categories + budgets
-- `POST /api/categories` create category (`name`, `subCategory` = need/want)
+- `POST /api/categories` create category (`name`, `type` = income/expense/investment, `subCategory` = need/want/investment)
 - `PATCH /api/categories/:id` edit category
 - `DELETE /api/categories/:id` delete category
 - `PUT /api/categories/:id/budget` set/update monthly budget (`month`, `year`, `amount`)

@@ -10,6 +10,7 @@ export interface Transaction {
   category: {
     _id: string;
     name: string;
+    type: 'income' | 'expense' | 'investment';
     subCategory: string;
   };
 }
