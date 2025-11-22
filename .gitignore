@@ -127,6 +127,8 @@ backend/node_modules/
 mobileapp/.expo/
 mobileapp/.expo-shared/
 mobileapp/dist/
+mobileapp/ios/
+mobileapp/android/
 mobileapp/web-build/
 mobileapp/node_modules/
 

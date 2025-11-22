@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.mrahulbhat.servicecare'
+    namespace 'com.mrahulbhat.cashbook'
     defaultConfig {
-        applicationId 'com.mrahulbhat.servicecare'
+        applicationId 'com.mrahulbhat.cashbook'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

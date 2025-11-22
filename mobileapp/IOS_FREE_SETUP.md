@@ -28,6 +28,7 @@ You can use Xcode for **FREE** with a regular Apple ID (no $99 fee needed) for d
    ```bash
    cd mobileapp
    open ios/servicecare.xcworkspace
+   # Note: The workspace name is still "servicecare" but the app will be named "Cashbook"
    ```
    (Note: Open `.xcworkspace`, NOT `.xcodeproj`)
 

@@ -1,4 +1,4 @@
-package com.mrahulbhat.servicecare
+package com.mrahulbhat.cashbook
 
 import android.app.Application
 import android.content.res.Configuration

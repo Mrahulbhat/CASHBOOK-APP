@@ -1,4 +1,4 @@
-package com.mrahulbhat.servicecare
+package com.mrahulbhat.cashbook
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
