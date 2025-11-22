@@ -35,6 +35,8 @@ export default function Categories() {
     try {
       setLoading(true);
       const data = await categoryApi.getCategories();
+      console.log('Fetched categories:', data);
+      console.log('Categories with missing type:', data.filter((cat: any) => !cat.type));
       setCategories(data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -79,7 +81,9 @@ export default function Categories() {
       setShowAddModal(false);
       setEditingCategory(null);
       setFormData({ name: '', type: 'expense', subCategory: 'need' });
-      fetchCategories();
+      
+      // Fetch categories to update the list
+      await fetchCategories();
     } catch (error: any) {
       Toast.show({
         type: 'error',
@@ -174,7 +178,9 @@ export default function Categories() {
 
   const groupedCategories = categories.reduce(
     (acc, cat) => {
-      const key = `${cat.type}-${cat.subCategory}`;
+      // Fallback to 'expense' if type is missing (for backward compatibility)
+      const type = cat.type || 'expense';
+      const key = `${type}-${cat.subCategory}`;
       if (!acc[key]) {
         acc[key] = [];
       }
@@ -232,67 +238,79 @@ export default function Categories() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {(['income', 'expense', 'investment'] as const).map((catType) => {
-            return (
-              <View key={catType}>
-                <View style={styles.typeSection}>
-                  <Text style={styles.typeSectionTitle}>
-                    {catType.charAt(0).toUpperCase() + catType.slice(1)} Categories
-                  </Text>
-                </View>
-                {(['need', 'want', 'investment'] as const).map((subCat) => {
-                  const key = `${catType}-${subCat}`;
-                  const items = groupedCategories[key] || [];
-                  if (items.length === 0) return null;
-
-                  return (
-                    <View key={key} style={styles.section}>
-                      <View style={styles.sectionHeader}>
-                        <View
-                          style={[
-                            styles.sectionIndicator,
-                            { backgroundColor: getSubCategoryColor(subCat) },
-                          ]}
-                        />
-                        <Text style={styles.sectionTitle}>
-                          {subCat.charAt(0).toUpperCase() + subCat.slice(1)}
-                        </Text>
-                        <Text style={styles.sectionCount}>({items.length})</Text>
-                      </View>
-
-                      {items.map((category) => (
-                        <View key={category._id} style={styles.categoryCard}>
-                          <View style={styles.categoryInfo}>
-                            <Text style={styles.categoryName}>{category.name}</Text>
-                            {category.monthlyBudgets.length > 0 && (
-                              <Text style={styles.budgetInfo}>
-                                {category.monthlyBudgets.length} budget(s) set
-                              </Text>
-                            )}
-                          </View>
-
-                          <View style={styles.categoryActions}>
-                            <Pressable
-                              style={styles.actionButton}
-                              onPress={() => handleEdit(category)}
-                            >
-                              <Edit color="#60A5FA" size={18} />
-                            </Pressable>
-                            <Pressable
-                              style={styles.actionButton}
-                              onPress={() => handleDelete(category._id, category.name)}
-                            >
-                              <Trash2 color="#EF4444" size={18} />
-                            </Pressable>
-                          </View>
-                        </View>
-                      ))}
+          {Object.keys(groupedCategories).length === 0 ? (
+            <View style={styles.centerContainer}>
+              <FolderOpen color="#888" size={48} />
+              <Text style={styles.emptyText}>No categories found</Text>
+              <Text style={styles.emptySubtext}>
+                Categories exist but may be loading. Pull to refresh.
+              </Text>
+            </View>
+          ) : (
+            <>
+              {(['income', 'expense', 'investment'] as const).map((catType) => {
+                return (
+                  <View key={catType}>
+                    <View style={styles.typeSection}>
+                      <Text style={styles.typeSectionTitle}>
+                        {catType.charAt(0).toUpperCase() + catType.slice(1)} Categories
+                      </Text>
                     </View>
-                  );
-                })}
-              </View>
-            );
-          })}
+                    {(['need', 'want', 'investment'] as const).map((subCat) => {
+                      const key = `${catType}-${subCat}`;
+                      const items = groupedCategories[key] || [];
+                      if (items.length === 0) return null;
+
+                      return (
+                        <View key={key} style={styles.section}>
+                          <View style={styles.sectionHeader}>
+                            <View
+                              style={[
+                                styles.sectionIndicator,
+                                { backgroundColor: getSubCategoryColor(subCat) },
+                              ]}
+                            />
+                            <Text style={styles.sectionTitle}>
+                              {subCat.charAt(0).toUpperCase() + subCat.slice(1)}
+                            </Text>
+                            <Text style={styles.sectionCount}>({items.length})</Text>
+                          </View>
+
+                          {items.map((category) => (
+                            <View key={category._id} style={styles.categoryCard}>
+                              <View style={styles.categoryInfo}>
+                                <Text style={styles.categoryName}>{category.name}</Text>
+                                {category.monthlyBudgets.length > 0 && (
+                                  <Text style={styles.budgetInfo}>
+                                    {category.monthlyBudgets.length} budget(s) set
+                                  </Text>
+                                )}
+                              </View>
+
+                              <View style={styles.categoryActions}>
+                                <Pressable
+                                  style={styles.actionButton}
+                                  onPress={() => handleEdit(category)}
+                                >
+                                  <Edit color="#60A5FA" size={18} />
+                                </Pressable>
+                                <Pressable
+                                  style={styles.actionButton}
+                                  onPress={() => handleDelete(category._id, category.name)}
+                                >
+                                  <Trash2 color="#EF4444" size={18} />
+                                </Pressable>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+            </>
+          )}
         </ScrollView>
       )}
 
